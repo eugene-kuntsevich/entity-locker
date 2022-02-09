@@ -27,6 +27,35 @@ class EntityLockerTest {
     assertEquals(THREADS * ITERATIONS, entity.counter);
   }
 
+  @Test
+  void lockingTwoDiffEntitiesInMultiThreadsAndExecutingProtectedCode() {
+    EntityLocker<Long> entityLocker = new EntityLocker<>();
+
+    //prepare threads for the first entity
+    CounterEntity firstEntity = new CounterEntity(333L);
+    List<Thread> firstThreadsPool = new ArrayList<>(THREADS);
+    for (int i = 0; i < THREADS; i++) {
+      Thread thread = new Thread(new CounterHandler(firstEntity, entityLocker));
+      firstThreadsPool.add(thread);
+    }
+    firstThreadsPool.forEach(Thread::start);
+    firstThreadsPool.forEach(this::threadJoin);
+
+    //prepare threads for the second entity
+    CounterEntity secondEntity = new CounterEntity(999L);
+    List<Thread> secondThreadsPool = new ArrayList<>(THREADS);
+    for (int i = 0; i < THREADS; i++) {
+      Thread thread = new Thread(new CounterHandler(secondEntity, entityLocker));
+      secondThreadsPool.add(thread);
+    }
+    secondThreadsPool.forEach(Thread::start);
+    secondThreadsPool.forEach(this::threadJoin);
+
+    //asserts
+    assertEquals(THREADS * ITERATIONS, firstEntity.counter);
+    assertEquals(THREADS * ITERATIONS, secondEntity.counter);
+  }
+
   private void threadJoin(Thread thread) {
     try {
       thread.join();

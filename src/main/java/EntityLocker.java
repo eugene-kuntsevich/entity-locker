@@ -1,13 +1,13 @@
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class EntityLocker<T> {
 
-  private final ConcurrentMap<T, ExtendedReentrantLock> locks = new ConcurrentHashMap<>();
+  private final ConcurrentMap<T, ReentrantLock> locks = new ConcurrentHashMap<>();
 
   public void runWithLock(T id, Runnable protectedCode) {
-    ExtendedReentrantLock reentrantLock =
-        locks.computeIfAbsent(id, k -> new ExtendedReentrantLock());
+    ReentrantLock reentrantLock = locks.computeIfAbsent(id, k -> new ReentrantLock());
 
     reentrantLock.lock();
 
