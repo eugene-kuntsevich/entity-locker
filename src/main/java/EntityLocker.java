@@ -1,20 +1,20 @@
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.ConcurrentMap;
 
 public class EntityLocker<T> {
 
-  private final ConcurrentHashMap<T, ReentrantLock> locks = new ConcurrentHashMap<>();
+  private final ConcurrentMap<T, ExtendedReentrantLock> locks = new ConcurrentHashMap<>();
 
-  public void lock(T id) throws InterruptedException {
-    ReentrantLock reentrantLock = locks.computeIfAbsent(id, k -> new ReentrantLock());
+  public void runWithLock(T id, Runnable protectedCode) {
+    ExtendedReentrantLock reentrantLock =
+        locks.computeIfAbsent(id, k -> new ExtendedReentrantLock());
+
     reentrantLock.lock();
-  }
 
-  public void unlock(T id) {
-    ReentrantLock reentrantLock = locks.get(id);
-    reentrantLock.unlock();
-    /*if (reentrantLock.getHoldCount() == 0) {
-      locks.remove(id);
-    }*/
+    try {
+      protectedCode.run();
+    } finally {
+      reentrantLock.unlock();
+    }
   }
 }
