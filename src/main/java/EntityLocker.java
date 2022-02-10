@@ -14,6 +14,9 @@ public class EntityLocker<T> {
     try {
       protectedCode.run();
     } finally {
+      if (!reentrantLock.isHeldByCurrentThread()) {
+        locks.remove(id);
+      }
       reentrantLock.unlock();
     }
   }
