@@ -3,6 +3,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class EntityLockerTest {
@@ -56,6 +58,46 @@ class EntityLockerTest {
     assertEquals(THREADS * ITERATIONS, secondEntity.counter);
   }
 
+  @Test
+  void lockAcquiredAndProtectedCodeNotExecutedBecauseTimeoutExpired() throws InterruptedException {
+    AtomicInteger counter = new AtomicInteger();
+    prepareTestDataForTimeoutTesting(counter, -10);
+    assertEquals(0, counter.get());
+  }
+
+  @Test
+  void lockReleasedAfterDelayAndProtectedCodeExecuted() throws InterruptedException {
+    AtomicInteger counter = new AtomicInteger();
+    prepareTestDataForTimeoutTesting(counter, 10);
+    assertEquals(1, counter.get());
+  }
+
+  private void prepareTestDataForTimeoutTesting(AtomicInteger counter, int delay)
+      throws InterruptedException {
+    EntityLocker<Integer> entityLocker = new EntityLocker<>();
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    int timeout = 100;
+    int id = 333;
+
+    //thread for blocking lock
+    new Thread(() -> entityLocker.tryWithLock(id, () ->
+    {
+      countDownLatch.countDown();
+      try {
+        Thread.sleep(timeout - delay);
+      } catch (InterruptedException e) {
+        fail();
+      }
+    })
+    ).start();
+
+    countDownLatch.await();
+    assertEquals(0, countDownLatch.getCount());
+
+    //trying to acquire lock and execute protected code
+    entityLocker.tryWithLock(id, timeout, counter::getAndIncrement);
+  }
+
   private void threadJoin(Thread thread) {
     try {
       thread.join();
@@ -69,7 +111,7 @@ class EntityLockerTest {
 
     @Override
     public void run() {
-      entityLocker.runWithLock(counterEntity.id, () -> {
+      entityLocker.tryWithLock(counterEntity.id, () -> {
         for (int i = 0; i < ITERATIONS; i++) {
           counterEntity.counter++;
         }
